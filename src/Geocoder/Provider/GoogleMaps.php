@@ -170,44 +170,47 @@ class GoogleMaps extends AbstractHttpProvider implements LocaleAwareProvider
 
         // no result
         if (!isset($json->results) || !count($json->results) || 'OK' !== $json->status) {
-            throw new NoResult(sprintf('Could not execute query "%s".', $query));
+            $results = [];
+            //throw new NoResult(sprintf('Could not execute query "%s".', $query));
         }
 
         $results = [];
-        foreach ($json->results as $result) {
-            $resultSet = $this->getDefaults();
+        if (!empty($json->results)) {
+            foreach ($json->results as $result) {
+                $resultSet = $this->getDefaults();
 
-            // update address components
-            foreach ($result->address_components as $component) {
-                foreach ($component->types as $type) {
-                    $this->updateAddressComponent($resultSet, $type, $component);
+                // update address components
+                foreach ($result->address_components as $component) {
+                    foreach ($component->types as $type) {
+                        $this->updateAddressComponent($resultSet, $type, $component);
+                    }
                 }
+
+                // update coordinates
+                $coordinates = $result->geometry->location;
+                $resultSet['latitude'] = $coordinates->lat;
+                $resultSet['longitude'] = $coordinates->lng;
+
+                $resultSet['bounds'] = null;
+                if (isset($result->geometry->bounds)) {
+                    $resultSet['bounds'] = array(
+                        'south' => $result->geometry->bounds->southwest->lat,
+                        'west' => $result->geometry->bounds->southwest->lng,
+                        'north' => $result->geometry->bounds->northeast->lat,
+                        'east' => $result->geometry->bounds->northeast->lng
+                    );
+                } elseif ('ROOFTOP' === $result->geometry->location_type) {
+                    // Fake bounds
+                    $resultSet['bounds'] = array(
+                        'south' => $coordinates->lat,
+                        'west' => $coordinates->lng,
+                        'north' => $coordinates->lat,
+                        'east' => $coordinates->lng
+                    );
+                }
+
+                $results[] = array_merge($this->getDefaults(), $resultSet);
             }
-
-            // update coordinates
-            $coordinates = $result->geometry->location;
-            $resultSet['latitude']  = $coordinates->lat;
-            $resultSet['longitude'] = $coordinates->lng;
-
-            $resultSet['bounds'] = null;
-            if (isset($result->geometry->bounds)) {
-                $resultSet['bounds'] = array(
-                    'south' => $result->geometry->bounds->southwest->lat,
-                    'west'  => $result->geometry->bounds->southwest->lng,
-                    'north' => $result->geometry->bounds->northeast->lat,
-                    'east'  => $result->geometry->bounds->northeast->lng
-                );
-            } elseif ('ROOFTOP' === $result->geometry->location_type) {
-                // Fake bounds
-                $resultSet['bounds'] = array(
-                    'south' => $coordinates->lat,
-                    'west'  => $coordinates->lng,
-                    'north' => $coordinates->lat,
-                    'east'  => $coordinates->lng
-                );
-            }
-
-            $results[] = array_merge($this->getDefaults(), $resultSet);
         }
 
         return $this->returnResults($results);
