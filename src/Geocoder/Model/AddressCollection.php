@@ -70,7 +70,8 @@ final class AddressCollection implements \IteratorAggregate, \Countable
     public function get($index)
     {
         if (!isset($this->addresses[$index])) {
-            throw new \OutOfBoundsException(sprintf('The index "%s" does not exist in this collection.', $index));
+            //throw new \OutOfBoundsException(sprintf('The index "%s" does not exist in this collection.', $index));
+            return false;
         }
 
         return $this->addresses[$index];
